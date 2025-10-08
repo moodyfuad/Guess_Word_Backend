@@ -81,6 +81,7 @@ namespace WordleServer.Services
 
             var playerIndex = game.Players.Count;
 
+
             var player = new Player
             {
                 GameId = game.Id,
@@ -99,7 +100,7 @@ namespace WordleServer.Services
                 game.Phase = GamePhase.WaitingForSecrets;
             }
 
-            await _repo.UpdateAsync(game, ct);
+            //await _repo.UpdateAsync(game, ct);
             await _repo.SaveChangesAsync(ct);
 
             // Notify group (whoever is connected)
