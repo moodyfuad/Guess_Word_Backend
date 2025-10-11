@@ -1,4 +1,4 @@
-﻿namespace WordleServer.Dtos
+﻿namespace Guess_Word_Backend.Dtos
 {
     public class GameStateDto
     {

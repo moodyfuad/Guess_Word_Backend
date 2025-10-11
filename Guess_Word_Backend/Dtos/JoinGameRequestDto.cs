@@ -1,9 +1,9 @@
-﻿namespace WordleServer.Dtos
+﻿namespace Guess_Word_Backend.Dtos
 {
     public class JoinGameRequestDto
     {
         public string GameKey { get; set; } = string.Empty;
-        public string ClientId { get; set; } = string.Empty; // unique per client
-        public string? DisplayName { get; set; }
+        public string JoinerId { get; set; } = string.Empty; 
+        public string? JoinerName { get; set; }
     }
 }

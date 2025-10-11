@@ -1,12 +1,12 @@
 
+using Guess_Word_Backend.Data;
+using Guess_Word_Backend.Hubs;
+using Guess_Word_Backend.Repositories;
+using Guess_Word_Backend.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
-using WordleServer.Data;
-using WordleServer.Hubs;
-using WordleServer.Repositories;
-using WordleServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +20,7 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Arabic Wordle API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Arabic Guess Word API", Version = "v1" });
 });
 
 // DB: use SQLite for simplicity; swap to SQL Server / Postgres for prod
@@ -31,22 +31,25 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddSignalR();
 
 // DI: repositories and services
-builder.Services.AddScoped<IGameRepository, GameRepository>();
+//builder.Services.AddScoped(typeof(IBaseRepository), typeof(BaseRepository));
+builder.Services.AddScoped<IGameRoomRepository, GameRoomRepository>();
 builder.Services.AddScoped<IGameService, GameService>();
 
 // CORS (allow your client origin)
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
-        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials().SetIsOriginAllowed(_ => true)));
+        policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin()
+        //.AllowCredentials().SetIsOriginAllowed(_ => true)
+        ));
 
 var app = builder.Build();
 
 // Apply EF migrations at startup (simple approach)
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+//    db.Database.Migrate();
+//}
 
 // Middleware
 if (app.Environment.IsDevelopment())
@@ -58,7 +61,7 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseCors();
+app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 
 app.MapControllers();
 app.MapHub<GameHub>("/hubs/game");

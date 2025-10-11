@@ -1,11 +1,11 @@
-﻿using WordleServer.Models;
+﻿using Guess_Word_Backend.Models;
 
-namespace WordleServer.Dtos
+namespace Guess_Word_Backend.Dtos
 {
     public class GuessResultDto
     {
         public string Guess { get; set; } = string.Empty;
-        public List<LetterState> Feedback { get; set; } = new();
+        public List<Letter> Letters{ get; set; } = [];
         public int PlayerIndex { get; set; }
         public bool IsWinningGuess { get; set; }
     }
