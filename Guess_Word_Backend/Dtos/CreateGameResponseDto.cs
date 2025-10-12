@@ -2,16 +2,18 @@
 {
     public class CreateGameResponseDto
     {
-        public CreateGameResponseDto(string gameKey, string creatorId, int wordLength, int maxAttempts)
+        public CreateGameResponseDto(string gameKey, string creatorId, int wordLength, int maxAttempts, string creatorName)
         {
-            GameKey = gameKey;
+            RoomKey = gameKey;
             CreatorId = creatorId;
             WordLength = wordLength;
             MaxAttempts = maxAttempts;
+            CreatorName = creatorName;
         }
 
-        public string GameKey { get; set; } = string.Empty;
+        public string RoomKey { get; set; } = string.Empty;
         public string CreatorId { get; set; }
+        public string CreatorName { get; set; }
         public int WordLength { get; set; }
         public int MaxAttempts { get; set; }
     }

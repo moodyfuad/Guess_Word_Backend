@@ -28,7 +28,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=wordle.db"));
 
 // SignalR
-builder.Services.AddSignalR();
+builder.Services.AddSignalR().AddJsonProtocol();
 
 // DI: repositories and services
 //builder.Services.AddScoped(typeof(IBaseRepository), typeof(BaseRepository));
@@ -59,7 +59,7 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 

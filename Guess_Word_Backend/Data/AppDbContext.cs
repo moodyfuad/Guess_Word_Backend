@@ -11,11 +11,11 @@ namespace Guess_Word_Backend.Data
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        public DbSet<GameRoom> GameRooms;
-        public DbSet<GameRoomStates> GameRoomStates;
-        public DbSet<Letter> Letters;
-        public DbSet<Player> Players;
-        public DbSet<Word> Words;
+        public DbSet<GameRoom> GameRooms { get; set; }
+        //public DbSet<GameRoomStates> GameRoomStates { get; set; }
+        public DbSet<Letter> Letters { get; set; }
+        public DbSet<Player> Players{ get; set; }
+        public DbSet<Word> Words{ get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             

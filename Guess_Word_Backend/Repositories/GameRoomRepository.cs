@@ -11,7 +11,7 @@ namespace Guess_Word_Backend.Repositories
 
         public async Task<GameRoom?> GetByKey(string key, CancellationToken ct)
         {
-             return await base.GetAsync(g => g.Key.Equals(key, StringComparison.OrdinalIgnoreCase), ct);
+             return await base.GetAsync(g => g.Key.ToLower().Equals(key.ToLower()), ct);
         }
     }
 }

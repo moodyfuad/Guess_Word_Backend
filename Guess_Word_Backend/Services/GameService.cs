@@ -16,12 +16,12 @@ namespace Guess_Word_Backend.Services
 
         //private readonly IGameRepository _repo;
         private readonly IGameRoomRepository _repo;
-        private readonly IHubContext<GameHub, IGameClient> _hubContext;
+        //private readonly IHubContext<GameHub, IGameClient> _hubContext;
         private readonly ILogger<GameService> _logger;
-        public GameService(IGameRoomRepository repo, IHubContext<GameHub, IGameClient> hubContext, ILogger<GameService> logger)
+        public GameService(IGameRoomRepository repo, ILogger<GameService> logger)
         {
             _repo = repo;
-            _hubContext = hubContext;
+            //_hubContext = hubContext;
             _logger = logger;
         }
 
@@ -41,7 +41,7 @@ namespace Guess_Word_Backend.Services
                     CreatorName = requestDto.CreatorName??"Creator player",
                 };
                 await _repo.AddAsync(gameRomm, ct);
-                return new(key,gameRomm.CreatorId.ToString(),gameRomm.WordLength,gameRomm.MaxAttempts);
+                return new(key,gameRomm.CreatorId.ToString(),gameRomm.WordLength,gameRomm.MaxAttempts, gameRomm.CreatorName);
             }
             else { return await CreateGameRoomAsync(requestDto, ct); }
         }
