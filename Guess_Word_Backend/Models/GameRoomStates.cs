@@ -3,14 +3,12 @@
     public class GameRoomStates
     {
         
-        public const string WaitingForPlayers = "waiting";
-        public const string PlayerJoined = "player_joined";
-        public const string InProgress = "in_progress";
+        public const string WaitingForPlayers = "waitingForPlayers";
+        public const string PlayerJoined = "waitingForPlayers";
+        public const string InProgress = "inProgress";
         public const string Finished = "finished";
-
-
-
-}
+        public const string WaitingForWord = "waitingForWord";
+    }
 
     
 }

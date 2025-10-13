@@ -72,19 +72,19 @@ namespace Guess_Word_Backend.Services
 
 
 
-        private static string GenerateGameKey(int len)
-        {
-            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            var sb = new StringBuilder();
-            using var rng = RandomNumberGenerator.Create();
-            var bytes = new byte[len];
-            rng.GetBytes(bytes);
-            for (int i = 0; i < len; i++)
+            private static string GenerateGameKey(int len)
             {
-                sb.Append(chars[bytes[i] % chars.Length]);
+                const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+                var sb = new StringBuilder();
+                using var rng = RandomNumberGenerator.Create();
+                var bytes = new byte[len];
+                rng.GetBytes(bytes);
+                for (int i = 0; i < len; i++)
+                {
+                    sb.Append(chars[bytes[i] % chars.Length]);
+                }
+                return sb.ToString();
             }
-            return sb.ToString();
-        }
 
         
 

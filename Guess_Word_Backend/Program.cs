@@ -31,9 +31,8 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddSignalR().AddJsonProtocol();
 
 // DI: repositories and services
-//builder.Services.AddScoped(typeof(IBaseRepository), typeof(BaseRepository));
-builder.Services.AddScoped<IGameRoomRepository, GameRoomRepository>();
-builder.Services.AddScoped<IGameService, GameService>();
+//builder.Services.AddScoped<IGameRoomRepository, GameRoomRepository>();
+//builder.Services.AddScoped<IGameService, GameService>();
 
 // CORS (allow your client origin)
 builder.Services.AddCors(options =>
