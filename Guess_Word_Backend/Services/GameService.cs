@@ -46,7 +46,7 @@ namespace Guess_Word_Backend.Services
             else { return await CreateGameRoomAsync(requestDto, ct); }
         }
 
-        public async Task<JoinGameResponseDto> JoinGameAsync(JoinGameRequestDto dto, CancellationToken ct = default)
+        public async Task<JoinGameResponseDto> JoinGameAsync(JoinRoomRequestDto dto, CancellationToken ct = default)
         {
             var gameRomm = await _repo.GetByKey(dto.GameKey, ct);
             if (gameRomm is null)

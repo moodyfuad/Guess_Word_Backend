@@ -1,4 +1,7 @@
-﻿using Guess_Word_Backend.Dtos;
+﻿using Azure;
+using Guess_Word_Backend.Dtos;
+using Guess_Word_Backend.Hubs.HubDtos;
+using Guess_Word_Backend.Hubs.HubServices;
 using Guess_Word_Backend.Models;
 using Guess_Word_Backend.Services;
 using Microsoft.AspNetCore.SignalR;
@@ -12,18 +15,11 @@ namespace Guess_Word_Backend.Hubs
 
     public class GameHub : Hub
     {
-        //public GameHub(IGameService gameService)
         public GameHub()
         {
-            //this._gameService = gameService;
-            //_connectedPlayers = [];
+          
         }
-        
-        private static ConcurrentDictionary<string, string> _connections = new ConcurrentDictionary<string, string>();
-        //private readonly IGameService _gameService;
         private static List<Player> _connectedPlayers = [];
-
-
         
         public override async Task OnConnectedAsync()
         {
@@ -31,20 +27,12 @@ namespace Guess_Word_Backend.Hubs
 
             var http = this.Context.GetHttpContext();
             string userId = http?.Request.Query["userId"]!;
+            string name = http?.Request.Query["name"]??"player";
 
-
-            _connectedPlayers.Add(
-                   new()
-                   {
-                       ConnectionId = connectionId
-                       ,
-                       ClientId = userId.Trim('"','/','\\')
-                       ,
-                       Invitable = true
-
-                   });
+            var newPlayer = OnlinePlayersService.AddPlayer(userId, connectionId, name);
+           
             await Clients.AllExcept([connectionId]).SendAsync("ReceiveOnlineUser", connectionId);
-             foreach (Player player in _connectedPlayers)
+             foreach (PlayerDto player in OnlinePlayersService.GetPlayersRange(p=>p.ConnectionId != null))
             {
                 if (player.ConnectionId == connectionId)
                 {
@@ -53,61 +41,73 @@ namespace Guess_Word_Backend.Hubs
                 await Clients.Caller.SendAsync("ReceiveOnlineUser",player.ConnectionId);
                 
             }
-         
-                
             System.Console.WriteLine($"User {userId} Connected");
-
+            await Clients.Others.SendAsync("OnNewPlayerConnected", newPlayer);
 
             await base.OnConnectedAsync();
-
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var http = Context.GetHttpContext();
             string? userId = http?.Request.Query["userId"].ToString();
+            _handelOpponentDisconnected();
+            PlayerDto player = OnlinePlayersService.GetPlayerConnectionId(Context.ConnectionId);
+            await Clients.Others.SendAsync("OnPlayerDisconnected", player);
 
-            if (!string.IsNullOrEmpty(userId))
-            {
-                // userId is checked for null/empty; use null-forgiving to satisfy analyzer
-                _connections.TryRemove(userId!, out _);
-                System.Console.WriteLine($"User {userId} disconnected");
-
-                _connectedPlayers.RemoveAll(p => p.ClientId == userId || p.ConnectionId == Context.ConnectionId);
-            }
-
+            OnlinePlayersService.RemoveBy(userId, Context.ConnectionId);
+            System.Console.WriteLine($"User {userId} disconnected");
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task JoinRoom(JoinGameRequestDto dto)
+        public async Task GetOnlinePlayers(GetOnlinePlayersRequestDto dto)
+        {
+            var response = OnlinePlayersService.GetOnlinePlayers(dto);
+            await Clients.Caller.SendAsync("OnReciveOnlinePlayers", response);
+        }
+
+        public async Task JoinRoom(JoinRoomRequestDto dto)
         {
            
-            Player? player = _connectedPlayers.Find(p => p.ClientId == dto.JoinerId);
-            Player? gameCreator = _connectedPlayers.Find(p => dto.GameKey.Equals(p.Room?.Key, StringComparison.OrdinalIgnoreCase));
-            if (player is not null && gameCreator is not null && gameCreator.Room is not null)
-            {
-                player.Name = dto.JoinerName;
-                gameCreator.Room.Joiner = new(player);
-                gameCreator.Room.State = GameRoomStates.WaitingForWord;
-            await this.Clients.Clients([player.ConnectionId,gameCreator.ConnectionId]).SendAsync("ReceiveGameRoomJoined",gameCreator.Room);
-            }
+            var joinerPlayer = OnlinePlayersService.GetPlayerId(dto.JoinerId);
+            var room = RoomsService.GetRoomKey(dto.GameKey);
+            joinerPlayer.Name = dto.JoinerName;
+            var creatorPlayer = OnlinePlayersService.GetPlayerId(room.CreatorId);
+
+            OnlinePlayersService.UpdatePlayer(joinerPlayer);
+
+            room.JoinerId = dto.JoinerId;
+            room.State = GameRoomStates.WaitingForWord;
+            ;
+            
+            await this.Clients.Clients([
+                joinerPlayer.ConnectionId,
+               creatorPlayer.ConnectionId])
+                .SendAsync("ReceiveGameRoomJoined",room, creatorPlayer, joinerPlayer);
+
+
+            //Player? gameCreator = _connectedPlayers.Find(p => dto.GameKey.Equals(p.Room?.Key, StringComparison.OrdinalIgnoreCase));
+            
+            
+            
         }
         public async Task SelectWord(SelectWordRequestDto dto)
         {
-            Room? room = _connectedPlayers.Find(p => p.Room != null &&
-            p.Room.Key == dto.Roomkey)?.Room;
-            if (room is not null && room.Joiner is not null && room.Creator is not null)
+            RoomDto? room = RoomsService.GetRoomKey(dto.Roomkey);
+            var joiner = OnlinePlayersService.GetPlayerId(room.JoinerId);
+            var creator = OnlinePlayersService.GetPlayerId(room.CreatorId);
+            if (room is not null && joiner is not null && creator is not null)
             {
-                if (room.Creator.ClientId == dto.Id)
+                if (room.CreatorId == dto.Id)
                 {
-                    room.creatorWord = dto.Word;
-                    await Clients.Client(room.Joiner!.ConnectionId).SendAsync("ReceiveOpponentSelectedItsWord",room.Creator.ClientId,room.creatorWord);
+                    room.CreatorWord = dto.Word;
+                    await Clients.Client(joiner.ConnectionId).SendAsync("ReceiveOpponentSelectedItsWord",room.CreatorId,room.CreatorWord);
 
                 }
-                else if (room.Joiner is not null && room.Joiner.ClientId == dto.Id)
+                else if (room.JoinerId == dto.Id)
                 {
-                    room.JonerWord = dto.Word;
-                    await Clients.Client(room.Creator!.ConnectionId).SendAsync("ReceiveOpponentSelectedItsWord", room.Joiner.ClientId, room.JonerWord);
+                    room.JoinerWord = dto.Word;
+                    await Clients.Client(creator.ConnectionId).SendAsync("ReceiveOpponentSelectedItsWord", room.JoinerId, room.JoinerWord);
                 }
             }
 
@@ -120,43 +120,76 @@ namespace Guess_Word_Backend.Hubs
 
         public async Task CreateRoom(CreateGameRoomRequestDto dto)
         {
-            
-            Player? creator = _connectedPlayers.Find(p => p.ConnectionId == Context.ConnectionId);
+            var creator = OnlinePlayersService.GetPlayerConnectionId(Context.ConnectionId);
+
             if (creator is not null)
             {
                 creator.Name = dto.CreatorName;
-                creator.Room = new Room()
-                {
-                    Creator = new(creator),
-                    Key = GenerateGameKey(4),
-                    State = GameRoomStates.WaitingForPlayers,
-                    MaxAttempts = dto.MaxAttempts,
-                    WordLength = dto.WordLength,
-                };
+                var room = RoomsService.Create(creator,dto.WordLength,dto.MaxAttempts);
+
+            await Clients.Caller.SendAsync("ReceiveGameRoomCreated", room);
             }
-
-            await Clients.Caller.SendAsync("ReceiveGameRoomCreated", creator.Room);
         }
-        
-
-        public async Task LeaveGroup(string gameKey, string clientId)
+        public async Task LeaveGame()
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, gameKey);
-            // remove mapping if stored (not implemented here)
-        }
-
-        private static string GenerateGameKey(int len)
-        {
-            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            var sb = new StringBuilder();
-            using var rng = RandomNumberGenerator.Create();
-            var bytes = new byte[len];
-            rng.GetBytes(bytes);
-            for (int i = 0; i < len; i++)
+            var player = OnlinePlayersService.GetPlayerConnectionId(Context.ConnectionId);
+            var room = RoomsService.GetCreatorRoom(player?.Id??"")??
+            RoomsService.GetJoinerRoom(player?.Id??"");
+            if (room is null)
             {
-                sb.Append(chars[bytes[i] % chars.Length]);
+                return;
             }
-            return sb.ToString();
+            if (room.CreatorId == player.Id)
+            {
+                await Clients.Clients(OnlinePlayersService.GetPlayerId(room.JoinerId).ConnectionId)
+                    .SendAsync("OnOpponentLeaveGame");
+            }
+            else
+            {
+                await Clients.Clients(OnlinePlayersService.GetPlayerId(room.CreatorId).ConnectionId)
+                    .SendAsync("OnOpponentLeaveGame");
+            }
         }
+
+        public async Task InvitePlayer(SendInvitationRequestDto dto)
+        {
+            PlayerDto player = OnlinePlayersService.GetPlayerId(dto.ToPlayerId);
+            if (player is not null)
+            {
+            await Clients.Clients(player?.ConnectionId??"").SendAsync("OnInvitationReceived", player);
+            }
+        }
+        public async Task ResponseToInvitation(SendInvitationResponseDto dto)
+        {
+            PlayerDto player = OnlinePlayersService.GetPlayerId(dto.ToPlayerId);
+            if (player is not null)
+            {
+            await Clients.Clients(player?.ConnectionId??"").SendAsync("OnGetsInvitationResponse", dto);
+            }
+        }
+
+        private void _handelOpponentDisconnected()
+        {
+            Player? disconnctedPlayer = _connectedPlayers.Find(p => p.ConnectionId == Context.ConnectionId);
+            if (disconnctedPlayer != null && disconnctedPlayer.Room!= null && disconnctedPlayer.Room.Joiner != null)
+            {
+                string toConnectionId = string.Empty;
+                if (disconnctedPlayer.Room.Creator.ConnectionId == Context.ConnectionId)
+                {
+
+                    toConnectionId = disconnctedPlayer.Room.Joiner.ConnectionId;
+                }
+                else
+                {
+                    toConnectionId = disconnctedPlayer.Room.Creator.ConnectionId;
+                }
+
+            Clients.Client(toConnectionId!).SendAsync("OnOpponentDisconnected");
+            }
+
+        }
+
+
+        
     }
 }
