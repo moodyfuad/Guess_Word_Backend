@@ -2,11 +2,9 @@
 
 namespace Guess_Word_Backend.Hubs.Repositories
 {
-    public static class HubData
+    public class HubData
     {
-        public static List<PlayerDto> Players = [];
-        public static List<RoomDto> Rooms = [];
-
-
+        public List<PlayerDto> Players = [];
+        public List<RoomDto> Rooms = [];
     }
 }

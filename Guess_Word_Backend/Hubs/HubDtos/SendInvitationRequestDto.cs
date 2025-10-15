@@ -4,5 +4,6 @@
     {
         public string FromPlayerId { get; set; }
         public string ToPlayerId { get; set; }
+        public int WordLength { get; set; }
     }
 }

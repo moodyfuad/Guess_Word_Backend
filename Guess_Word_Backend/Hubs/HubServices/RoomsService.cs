@@ -5,34 +5,52 @@ using System.Text;
 
 namespace Guess_Word_Backend.Hubs.HubServices
 {
-    public static class RoomsService
+    public  class RoomsService
     {
-        public static RoomDto? GetRoomKey(string Key)
+        private readonly HubData _data;
+
+        public RoomsService(HubData data)
         {
-            return HubData.Rooms.Find(r=> r.Key.Equals(Key, StringComparison.OrdinalIgnoreCase));
+            _data = data;
         }
-        public static RoomDto? GetCreatorRoom(string creatorId)
+
+        public  RoomDto? GetRoomKey(string Key)
         {
-            return HubData.Rooms.Find(r=> r.CreatorId.Equals(creatorId));
+            return _data.Rooms.Find(r=> r.Key.Equals(Key, StringComparison.OrdinalIgnoreCase));
         }
-        public static RoomDto Create(PlayerDto creator,int wordlength,int maxAtempts)
+        public  RoomDto? GetCreatorRoom(string creatorId)
+        {
+            return _data.Rooms.Find(r=> r.CreatorId.Equals(creatorId));
+        }
+        public  RoomDto Create(PlayerDto creator,int wordlength,int maxAtempts)
         {
             DeleteCreatorRoom(creator);
             RoomDto room = new(GenerateGameKey(4), wordlength, maxAtempts, creator.Id);
-            HubData.Rooms.Add(room);
+            _data.Rooms.Add(room);
             return room;
         }
-        public static void DeleteCreatorRoom(PlayerDto creator)
+        public  RoomDto ConfigerCteatorRoomForJoiner(PlayerDto creator,PlayerDto joiner)
+        {
+            RoomDto? room = GetCreatorRoom(creator.Id);
+            if(room == null)
+            {
+               room = Create(creator, 5, 20);
+               _data.Rooms.Add(room);
+            } 
+            room.JoinerId = joiner.Id;
+            return room;
+        }
+        public  void DeleteCreatorRoom(PlayerDto creator)
         {
             var room = GetCreatorRoom(creator.Id);
             if (room != null)
             {
-            HubData.Rooms.Remove(room);
+            _data.Rooms.Remove(room);
                 
             }
         }
 
-        private static string GenerateGameKey(int len)
+        private  string GenerateGameKey(int len)
         {
             const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
             var sb = new StringBuilder();
@@ -46,9 +64,9 @@ namespace Guess_Word_Backend.Hubs.HubServices
             return sb.ToString();
         }
 
-        public static RoomDto? GetJoinerRoom(string id)
+        public  RoomDto? GetJoinerRoom(string id)
         {
-            return HubData.Rooms.Find(r => r?.JoinerId?.Equals(id)??false);
+            return _data.Rooms.Find(r => r?.JoinerId?.Equals(id)??false);
         }
     }
 }

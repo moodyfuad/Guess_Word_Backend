@@ -1,6 +1,8 @@
 
 using Guess_Word_Backend.Data;
 using Guess_Word_Backend.Hubs;
+using Guess_Word_Backend.Hubs.HubServices;
+using Guess_Word_Backend.Hubs.Repositories;
 using Guess_Word_Backend.Repositories;
 using Guess_Word_Backend.Services;
 using Microsoft.AspNetCore.Builder;
@@ -14,9 +16,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
-        opts.JsonSerializerOptions.PropertyNamingPolicy = null;
+        opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 
+builder.Services.AddSingleton<HubData>();
+builder.Services.AddSingleton<OnlinePlayersService>();
+builder.Services.AddSingleton<RoomsService>();
+builder.Services.AddSingleton<HubData>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
