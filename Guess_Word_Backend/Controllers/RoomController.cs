@@ -14,6 +14,20 @@ namespace Guess_Word_Backend.Controllers
     [ApiController]
     public class RoomController : ControllerBase
     {
+        // todo : set the players words when they join the room
+        // todo : notify the other player that the opponent sat its word
+        // todo : notify the players when both sat its word and redirect them to the game
+        // todo : check the winner at the server and update db
+        // todo : notify the players when they used all their attempts 
+        // todo : let player increase the attemts when it reach its limit 
+
+        // todo : send the guessed word to the opponent
+        // todo : notify the player when opponent disconnected
+        // todo : receive win request when opponent disconnected for 20 sec
+        // todo : save player (play count & win count)
+        // todo : handel the player win state
+        // todo : handel the player lose state
+
         private readonly IHubContext<GameHub> _hubContext;
         private readonly OnlinePlayersService _onlinePlayersService;
         private readonly RoomsService _roomsService;
@@ -34,7 +48,7 @@ namespace Guess_Word_Backend.Controllers
         [HttpPost]
         public async Task<ApiResponse<RoomDto>> CreateRoom(CreateGameRoomRequestDto dto)
         {
-            var creator = _onlinePlayersService.GetPlayerId(dto.CreatorId);
+            var creator = _onlinePlayersService.GetPlayerById(dto.CreatorId);
 
             if (creator is not null)
             {
@@ -49,10 +63,10 @@ namespace Guess_Word_Backend.Controllers
         [HttpPost("join")]
         public async Task<ApiResponse<string>> JoinRoom(JoinRoomRequestDto dto)
         {
-            var joinerPlayer = _onlinePlayersService.GetPlayerId(dto.JoinerId);
+            var joinerPlayer = _onlinePlayersService.GetPlayerById(dto.JoinerId);
             var room = _roomsService.GetRoomKey(dto.GameKey);
             joinerPlayer.Name = dto.JoinerName;
-            var creatorPlayer = _onlinePlayersService.GetPlayerId(room.CreatorId);
+            var creatorPlayer = _onlinePlayersService.GetPlayerById(room.CreatorId);
             if (room is null)
             {
                 return ApiResponse<string>.BadRequest();
@@ -78,8 +92,8 @@ namespace Guess_Word_Backend.Controllers
             {
                 return ApiResponse<string>.BadRequest();
             }
-            var creator = _onlinePlayersService.GetPlayerId(room.CreatorId);
-            var joiner = _onlinePlayersService.GetPlayerId(room.JoinerId);
+            var creator = _onlinePlayersService.GetPlayerById(room.CreatorId);
+            var joiner = _onlinePlayersService.GetPlayerById(room.JoinerId);
 
             if (room is not null && joiner is not null && creator is not null)
             {
@@ -108,7 +122,7 @@ namespace Guess_Word_Backend.Controllers
                 return ApiResponse<string>.BadRequest(message: $"Room Not Found with key {dto.RoomKey}");
             }
             var receiverId = room.JoinerId == dto.SenderId ? room.CreatorId : room.JoinerId;
-            var receiver = _onlinePlayersService.GetPlayerId(receiverId);
+            var receiver = _onlinePlayersService.GetPlayerById(receiverId);
 
             if (receiver is null) return ApiResponse<string>.Ok();
 

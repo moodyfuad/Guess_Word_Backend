@@ -51,11 +51,11 @@ namespace Guess_Word_Backend.Hubs.HubServices
         {
             return _data.Players.Find(expression);
         }
-        public PlayerDto? GetPlayerId(string id)
+        public PlayerDto? GetPlayerById(string id)
         {
             return _data.Players.Find(p=> p.Id == id);
         }
-        public PlayerDto? GetPlayerConnectionId(string connectionId)
+        public PlayerDto? GetPlayerByConnectionId(string connectionId)
         {
             return _data.Players.Find(p=> p.ConnectionId == connectionId);
         }

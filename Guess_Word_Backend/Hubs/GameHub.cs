@@ -3,7 +3,6 @@ using Guess_Word_Backend.Dtos;
 using Guess_Word_Backend.Hubs.HubDtos;
 using Guess_Word_Backend.Hubs.HubServices;
 using Guess_Word_Backend.Models;
-using Guess_Word_Backend.Services;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
@@ -15,7 +14,7 @@ namespace Guess_Word_Backend.Hubs
 
     public class GameHub : Hub
     {
-        private static List<Player> _connectedPlayers = [];
+        //private static List<Player> _connectedPlayers = [];
         private readonly OnlinePlayersService _onlinePlayersService;
         private readonly RoomsService _roomsService;
 
@@ -56,11 +55,6 @@ namespace Guess_Word_Backend.Hubs
             var http = Context.GetHttpContext();
             string? userId = http?.Request.Query["userId"].ToString();
             _handelOpponentDisconnected();
-            PlayerDto player = _onlinePlayersService.GetPlayerConnectionId(Context.ConnectionId);
-            await Clients.Others.SendAsync("OnPlayerDisconnected", player);
-
-            _onlinePlayersService.RemoveBy(userId, Context.ConnectionId);
-            System.Console.WriteLine($"User {userId} disconnected");
             await base.OnDisconnectedAsync(exception);
         }
 
@@ -132,14 +126,14 @@ namespace Guess_Word_Backend.Hubs
         //}
         public async Task LeaveGame()
         {
-            var player = _onlinePlayersService.GetPlayerConnectionId(Context.ConnectionId);
+            var player = _onlinePlayersService.GetPlayerByConnectionId(Context.ConnectionId);
             var room = _roomsService.GetCreatorRoom(player?.Id??"")??
             _roomsService.GetJoinerRoom(player?.Id??"");
             if (room is null)
             {
                 return;
             }
-            var target = room.CreatorId == player.Id ? _onlinePlayersService.GetPlayerId(room.JoinerId??"") : _onlinePlayersService.GetPlayerId(room.CreatorId??"");
+            var target = room.CreatorId == player.Id ? _onlinePlayersService.GetPlayerById(room.JoinerId??"") : _onlinePlayersService.GetPlayerById(room.CreatorId??"");
             if (target != null)
             {
                 await Clients.Clients(target.ConnectionId)
@@ -157,31 +151,26 @@ namespace Guess_Word_Backend.Hubs
         //}
         public async Task ResponseToInvitation(SendInvitationResponseDto dto)
         {
-            PlayerDto player = _onlinePlayersService.GetPlayerId(dto.ToPlayerId);
+            PlayerDto player = _onlinePlayersService.GetPlayerById(dto.ToPlayerId);
             if (player is not null)
             {
             await Clients.Clients(player?.ConnectionId??"").SendAsync("OnGetsInvitationResponse", dto);
             }
         }
 
-        private void _handelOpponentDisconnected()
+        private async Task _handelOpponentDisconnected()
         {
-            Player? disconnctedPlayer = _connectedPlayers.Find(p => p.ConnectionId == Context.ConnectionId);
-            if (disconnctedPlayer != null && disconnctedPlayer.Room!= null && disconnctedPlayer.Room.Joiner != null)
+            PlayerDto? player = _onlinePlayersService.GetPlayerByConnectionId(Context.ConnectionId);
+            bool inRoom = _roomsService.IsPlayerInAnyRoom(p=> p.Id == player?.Id, out string? otherPlayerId);
+            if (inRoom && otherPlayerId != null)
             {
-                string toConnectionId = string.Empty;
-                if (disconnctedPlayer.Room.Creator.ConnectionId == Context.ConnectionId)
-                {
-
-                    toConnectionId = disconnctedPlayer.Room.Joiner.ConnectionId;
-                }
-                else
-                {
-                    toConnectionId = disconnctedPlayer.Room.Creator.ConnectionId;
-                }
-
-            Clients.Client(toConnectionId!).SendAsync("OnOpponentDisconnected");
+               var otherPlayerConnectionId = _onlinePlayersService.GetPlayerById(otherPlayerId).ConnectionId;
+                Clients.Client(otherPlayerConnectionId).SendAsync("OnOpponentDisconnected");
+                System.Console.WriteLine($"User {player.Id} disconnected");
             }
+
+            _onlinePlayersService.RemoveBy(player?.Id, Context.ConnectionId);
+             await Clients.Others.SendAsync("OnPlayerDisconnected", player);
 
         }
 

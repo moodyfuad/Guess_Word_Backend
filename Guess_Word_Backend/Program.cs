@@ -4,7 +4,6 @@ using Guess_Word_Backend.Hubs;
 using Guess_Word_Backend.Hubs.HubServices;
 using Guess_Word_Backend.Hubs.Repositories;
 using Guess_Word_Backend.Repositories;
-using Guess_Word_Backend.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

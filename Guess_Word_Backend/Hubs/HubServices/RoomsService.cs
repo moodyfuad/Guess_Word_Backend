@@ -18,6 +18,17 @@ namespace Guess_Word_Backend.Hubs.HubServices
         {
             return _data.Rooms.Find(r=> r.Key.Equals(Key, StringComparison.OrdinalIgnoreCase));
         }
+        public bool IsPlayerInAnyRoom(Predicate<PlayerDto> predicate, out string? otherPlayerId)
+        {
+            var player = _data.Players.Find(predicate);
+            if (player == null) { otherPlayerId = null; return false; }
+            var room = GetCreatorRoom(player.Id); 
+            if (room != null) { otherPlayerId = room.JoinerId;   return true; }
+            room = GetJoinerRoom(player.Id); 
+            if (room != null) { otherPlayerId = room.CreatorId;   return true; }
+            otherPlayerId = null;
+            return false;
+        }
         public  RoomDto? GetCreatorRoom(string creatorId)
         {
             return _data.Rooms.Find(r=> r.CreatorId.Equals(creatorId));

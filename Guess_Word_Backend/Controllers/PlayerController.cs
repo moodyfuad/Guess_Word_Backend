@@ -3,7 +3,6 @@ using Guess_Word_Backend.Hubs;
 using Guess_Word_Backend.Hubs.HubDtos;
 using Guess_Word_Backend.Hubs.HubServices;
 using Guess_Word_Backend.Models;
-using Guess_Word_Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using WordleServer.Dtos;
@@ -17,18 +16,14 @@ namespace WordleServer.Controllers
         private readonly IHubContext<GameHub> _hubContext;
         private readonly OnlinePlayersService _onlinePlayersService;
         private readonly RoomsService _roomsService;
-
-        //private readonly IGameService _service;
         private readonly ILogger<PlayerController> _logger;
 
         public PlayerController(
-            //IGameService service,
             IHubContext<GameHub> hubContext,
             OnlinePlayersService onlinePlayersService,
             ILogger<PlayerController> logger,
             RoomsService roomsService)
         {
-            //_service = service;
             this._hubContext = hubContext;
             this._onlinePlayersService = onlinePlayersService;
             _logger = logger;
@@ -45,8 +40,8 @@ namespace WordleServer.Controllers
         [HttpPost("Invite")]
         public async Task<ApiResponse<string>> InvitePlayer(SendInvitationRequestDto dto)
         {
-            PlayerDto receiver = _onlinePlayersService.GetPlayerId(dto.ToPlayerId);
-            PlayerDto creator = _onlinePlayersService.GetPlayerId(dto.FromPlayerId);
+            PlayerDto receiver = _onlinePlayersService.GetPlayerById(dto.ToPlayerId);
+            PlayerDto creator = _onlinePlayersService.GetPlayerById(dto.FromPlayerId);
 
             _roomsService.Create(creator, dto.WordLength, 20);
             if (receiver == null) return ApiResponse<string>.BadRequest("this player is offline");
@@ -57,8 +52,8 @@ namespace WordleServer.Controllers
         [HttpPost("invite/response")]
         public async Task<ApiResponse<string>> ResponseToInvitation(SendInvitationResponseDto dto)
         {
-            PlayerDto inviterPlayer = _onlinePlayersService.GetPlayerId(dto.ToPlayerId);
-            PlayerDto joinerPlayer = _onlinePlayersService.GetPlayerId(dto.FromPlayerId);
+            PlayerDto inviterPlayer = _onlinePlayersService.GetPlayerById(dto.ToPlayerId);
+            PlayerDto joinerPlayer = _onlinePlayersService.GetPlayerById(dto.FromPlayerId);
             if ( inviterPlayer == null || joinerPlayer == null)
             {
                 return ApiResponse<string>.BadRequest(message: "Inviter left the game");
@@ -68,6 +63,8 @@ namespace WordleServer.Controllers
                 RoomDto room = _roomsService.ConfigerCteatorRoomForJoiner(inviterPlayer, joinerPlayer);
                 await _hubContext.Clients.Clients([inviterPlayer.ConnectionId,joinerPlayer.ConnectionId])
                     .SendAsync("OnGetsInvitationResponse", room, inviterPlayer, joinerPlayer);
+                await _hubContext.Clients.Client(inviterPlayer.ConnectionId)
+                .SendAsync("OnInvitationRejected", dto.State);
                 return ApiResponse<string>.Ok(InvitationStates.Accepted);
             }
             else
