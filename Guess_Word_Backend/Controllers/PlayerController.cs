@@ -1,11 +1,9 @@
-﻿using Guess_Word_Backend.Dtos;
+﻿using Core.Services.Abstraction;
 using Guess_Word_Backend.Hubs;
-using Guess_Word_Backend.Hubs.HubDtos;
-using Guess_Word_Backend.Hubs.HubServices;
-using Guess_Word_Backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using WordleServer.Dtos;
+using Shared.Dtos.PlayerDtos;
+using Shared.Helpers;
 
 namespace WordleServer.Controllers
 {
@@ -14,65 +12,64 @@ namespace WordleServer.Controllers
     public class PlayerController : ControllerBase
     {
         private readonly IHubContext<GameHub> _hubContext;
-        private readonly OnlinePlayersService _onlinePlayersService;
-        private readonly RoomsService _roomsService;
+       
+        private readonly IServiceManager _serviceManager;
         private readonly ILogger<PlayerController> _logger;
 
         public PlayerController(
             IHubContext<GameHub> hubContext,
-            OnlinePlayersService onlinePlayersService,
             ILogger<PlayerController> logger,
-            RoomsService roomsService)
+            IServiceManager serviceManager)
         {
             this._hubContext = hubContext;
-            this._onlinePlayersService = onlinePlayersService;
             _logger = logger;
-            _roomsService = roomsService;
+            this._serviceManager = serviceManager;
         }
 
         [HttpGet("/api/players")]
-        public async Task<ApiResponse<GetOnlinePlayersResponseDto>> GetOnlinePlayers(GetOnlinePlayersRequestDto dto)
+        public async Task<ApiResponse<GetOnlinePlayersResponseDto>> GetOnlinePlayers([FromBody] GetOnlinePlayersRequestDto dto)
         {
-
-            var response = _onlinePlayersService.GetOnlinePlayers(dto);
+            var parameters = new PagedListRequestParameters
+            {
+                PageNumber = dto.PageNumber,
+                PageSize = dto.PageSize
+            };
+            var response = await _serviceManager.PlayerService.GetOnlinePlayers(parameters);
             return ApiResponse<GetOnlinePlayersResponseDto>.Ok(response);
         }
         [HttpPost("Invite")]
         public async Task<ApiResponse<string>> InvitePlayer(SendInvitationRequestDto dto)
         {
-            PlayerDto receiver = _onlinePlayersService.GetPlayerById(dto.ToPlayerId);
-            PlayerDto creator = _onlinePlayersService.GetPlayerById(dto.FromPlayerId);
-
-            _roomsService.Create(creator, dto.WordLength, 20);
-            if (receiver == null) return ApiResponse<string>.BadRequest("this player is offline");
-            await _hubContext.Clients.Client(receiver?.ConnectionId ?? "").SendAsync("OnInvitationReceived", creator);
-            return ApiResponse<string>.Ok();
             
+            InvitePlayerResultDto result = await _serviceManager.PlayerService.InvitePlayer(dto);
+            if (result.Success)
+            {
+            await _hubContext.Clients.Client(result.Receiver!.ConnectionId).SendAsync("OnInvitationReceived", result.Creator);
+            return ApiResponse<string>.Ok("Invitation Sent");
+
+            }
+            return ApiResponse<string>.BadRequest(result.Message);
         }
         [HttpPost("invite/response")]
         public async Task<ApiResponse<string>> ResponseToInvitation(SendInvitationResponseDto dto)
         {
-            PlayerDto inviterPlayer = _onlinePlayersService.GetPlayerById(dto.ToPlayerId);
-            PlayerDto joinerPlayer = _onlinePlayersService.GetPlayerById(dto.FromPlayerId);
-            if ( inviterPlayer == null || joinerPlayer == null)
+            ResponseToInvitationResultDto result = await _serviceManager.PlayerService.ResponseToInvitation(dto);
+            if (!result.Success)
             {
-                return ApiResponse<string>.BadRequest(message: "Inviter left the game");
+                return ApiResponse<string>.BadRequest(message: result.Message);
             }
-            if (dto.State == InvitationStates.Accepted)
+            if(result.Room == null)
             {
-                RoomDto room = _roomsService.ConfigerCteatorRoomForJoiner(inviterPlayer, joinerPlayer);
-                await _hubContext.Clients.Clients([inviterPlayer.ConnectionId,joinerPlayer.ConnectionId])
-                    .SendAsync("OnGetsInvitationResponse", room, inviterPlayer, joinerPlayer);
-                await _hubContext.Clients.Client(inviterPlayer.ConnectionId)
-                .SendAsync("OnInvitationRejected", dto.State);
-                return ApiResponse<string>.Ok(InvitationStates.Accepted);
-            }
-            else
-            {
-                await _hubContext.Clients.Client(inviterPlayer.ConnectionId)
-                   .SendAsync("OnInvitationRejected",dto.State);
+                dto.State = InvitationStates.Rejected;
+                await _hubContext.Clients.Client(result.Creator!.ConnectionId)
+                  .SendAsync("OnInvitationRejected", dto.State);
                 return ApiResponse<string>.Ok(InvitationStates.Rejected);
-            }           
+            }
+            await _hubContext.Clients.Client(result.Creator.ConnectionId)
+            .SendAsync("OnInvitationRejected", dto.State);
+            await _hubContext.Clients.Clients([result.Creator!.ConnectionId, result.Joiner!.ConnectionId])
+                  .SendAsync("OnGetsInvitationResponse", result.Room, result.Creator, result.Joiner);
+            return ApiResponse<string>.Ok(InvitationStates.Accepted);
         }
 
 

@@ -1,13 +1,16 @@
 
-using Guess_Word_Backend.Data;
+using Core.Repositories;
+using Core.Services.Abstraction;
+
+//using Guess_Word_Backend.Data;
 using Guess_Word_Backend.Hubs;
-using Guess_Word_Backend.Hubs.HubServices;
-using Guess_Word_Backend.Hubs.Repositories;
-using Guess_Word_Backend.Repositories;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
+using Repositories.Implementation;
+using Repositories.Implementation.Repositories;
+using Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,10 +22,6 @@ builder.Services.AddControllers()
         opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 
-builder.Services.AddSingleton<HubData>();
-builder.Services.AddSingleton<OnlinePlayersService>();
-builder.Services.AddSingleton<RoomsService>();
-builder.Services.AddSingleton<HubData>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -30,8 +29,13 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // DB: use SQLite for simplicity; swap to SQL Server / Postgres for prod
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=wordle.db"));
+builder.Services.AddDbContext<AppDbContext>(opt => {
+    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=wordle.db");
+    //opt.UseSqlServer(builder.Configuration.GetConnectionString("LocalConnection") ?? "Data Source=wordle.db");
+    
+    
+});
+
 
 // SignalR
 builder.Services.AddSignalR().AddJsonProtocol();
@@ -39,6 +43,8 @@ builder.Services.AddSignalR().AddJsonProtocol();
 // DI: repositories and services
 //builder.Services.AddScoped<IGameRoomRepository, GameRoomRepository>();
 //builder.Services.AddScoped<IGameService, GameService>();
+builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
+builder.Services.AddScoped<IServiceManager, ServiceManager>();
 
 // CORS (allow your client origin)
 builder.Services.AddCors(options =>

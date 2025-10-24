@@ -1,11 +1,11 @@
-﻿using Guess_Word_Backend.Dtos;
+﻿using Core.Services.Abstraction;
 using Guess_Word_Backend.Hubs;
-using Guess_Word_Backend.Hubs.HubDtos;
-using Guess_Word_Backend.Hubs.HubServices;
-using Guess_Word_Backend.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Shared.Dtos.PlayerDtos;
+using Shared.Dtos.RoomDtos;
+using Shared.Helpers;
 using WordleServer.Controllers;
 
 namespace Guess_Word_Backend.Controllers
@@ -29,107 +29,91 @@ namespace Guess_Word_Backend.Controllers
         // todo : handel the player lose state
 
         private readonly IHubContext<GameHub> _hubContext;
-        private readonly OnlinePlayersService _onlinePlayersService;
-        private readonly RoomsService _roomsService;
+        private readonly IServiceManager _serviceManager;
         private readonly ILogger<PlayerController> _logger;
 
         public RoomController(
             IHubContext<GameHub> hubContext,
-            OnlinePlayersService onlinePlayersService,
-            RoomsService roomsService,
+            IServiceManager serviceManager,
             ILogger<PlayerController> logger)
         {
             this._hubContext = hubContext;
-            this._onlinePlayersService = onlinePlayersService;
-            this._roomsService = roomsService;
+            this._serviceManager = serviceManager;
             _logger = logger;
         }
 
         [HttpPost]
-        public async Task<ApiResponse<RoomDto>> CreateRoom(CreateGameRoomRequestDto dto)
+        public async Task<ApiResponse<RoomDto>> CreateRoom(CreateRoomRequestDto dto)
         {
-            var creator = _onlinePlayersService.GetPlayerById(dto.CreatorId);
-
-            if (creator is not null)
-            {
-                creator.Name = dto.CreatorName;
-                var room = _roomsService.Create(creator, dto.WordLength, dto.MaxAttempts);
-
-                return ApiResponse<RoomDto>.Created(room);
-            }
-            return ApiResponse<RoomDto>.BadRequest();
-
+            RoomDto room = await _serviceManager.RoomService.CreateRoom(dto);
+            return ApiResponse<RoomDto>.Created(room);
         }
         [HttpPost("join")]
         public async Task<ApiResponse<string>> JoinRoom(JoinRoomRequestDto dto)
         {
-            var joinerPlayer = _onlinePlayersService.GetPlayerById(dto.JoinerId);
-            var room = _roomsService.GetRoomKey(dto.GameKey);
-            joinerPlayer.Name = dto.JoinerName;
-            var creatorPlayer = _onlinePlayersService.GetPlayerById(room.CreatorId);
-            if (room is null)
+            ResponseToInvitationResultDto result = await _serviceManager.RoomService.JoinRoom(dto);
+            if (!result.Success)
             {
-                return ApiResponse<string>.BadRequest();
+                return ApiResponse<string>.BadRequest(result.Message);
             }
 
-            _onlinePlayersService.UpdatePlayer(joinerPlayer);
-
-            room.JoinerId = dto.JoinerId;
-            room.State = GameRoomStates.WaitingForWord;
-            ;
-
             await _hubContext.Clients.Clients([
-                joinerPlayer.ConnectionId,
-               creatorPlayer.ConnectionId])
-                .SendAsync("ReceiveGameRoomJoined", room, creatorPlayer, joinerPlayer);
+                result.Joiner!.ConnectionId,
+               result.Creator!.ConnectionId])
+                .SendAsync("ReceiveGameRoomJoined", result.Room, result.Creator, result.Joiner);
             return ApiResponse<string>.Ok();
         }
         [HttpPost("submitWord")]
         public async Task<ApiResponse<string>> SubmitWord(SelectWordRequestDto dto)
         {
-            RoomDto? room = _roomsService.GetRoomKey(dto.Roomkey);
-            if (room == null || room.JoinerId == null)
+            SubmitWordResultDto submitResult = await _serviceManager.RoomService.SubmitWord(dto);
+            if (!submitResult.Success)
             {
-                return ApiResponse<string>.BadRequest();
+                return ApiResponse<string>.BadRequest(submitResult.Message);
             }
-            var creator = _onlinePlayersService.GetPlayerById(room.CreatorId);
-            var joiner = _onlinePlayersService.GetPlayerById(room.JoinerId);
-
-            if (room is not null && joiner is not null && creator is not null)
+            if (submitResult.Room.CreatorId == dto.Id)
             {
-                if (room.CreatorId == dto.Id)
-                {
-                    room.CreatorWord = dto.Word;
-                    await _hubContext.Clients.Client(joiner.ConnectionId).SendAsync("ReceiveOpponentSelectedItsWord", room.CreatorId, room.CreatorWord);
-
-                }
-                else if (room.JoinerId == dto.Id)
-                {
-                    room.JoinerWord = dto.Word;
-                    await _hubContext.Clients.Client(creator.ConnectionId).SendAsync("ReceiveOpponentSelectedItsWord", room.JoinerId, room.JoinerWord);
-                }
-                return ApiResponse<string>.Ok();
+               
+                await _hubContext.Clients.Client(submitResult.JoinerConnectionId).
+                    SendAsync("ReceiveOpponentSelectedItsWord", submitResult.Room.CreatorId, submitResult.Room.CreatorWord);
             }
-            return ApiResponse<string>.BadRequest();
+            else if (submitResult.Room.JoinerId == dto.Id)
+            {
+                await _hubContext.Clients.Client(submitResult.CreatorConnectionId).
+                    SendAsync("ReceiveOpponentSelectedItsWord", submitResult.Room.JoinerId, submitResult.Room.JoinerWord);
+            }
+            return ApiResponse<string>.Ok();
+            
+           
         }
 
         [HttpPost("sendMyGuess")]
-            public async Task<ApiResponse<string>> SendMyGuess(SendGuessRequestDto dto)
+        public async Task<ApiResponse<string>> SendMyGuess(SendGuessRequestDto dto)
         {
-            var room = _roomsService.GetRoomKey(dto.RoomKey);
-            if (room == null)
+            SubmitWordResultDto result = await _serviceManager.RoomService.SubmitWordGuess(dto);
+            if (!result.Success)
             {
-                return ApiResponse<string>.BadRequest(message: $"Room Not Found with key {dto.RoomKey}");
+                return ApiResponse<string>.BadRequest(message:result.Message);
             }
-            var receiverId = room.JoinerId == dto.SenderId ? room.CreatorId : room.JoinerId;
-            var receiver = _onlinePlayersService.GetPlayerById(receiverId);
+            string receiverConnectionId= result.Room!.JoinerId == dto.SenderId ? result.CreatorConnectionId : result.JoinerConnectionId;
+            
 
-            if (receiver is null) return ApiResponse<string>.Ok();
-
-            await _hubContext.Clients.Client(receiver.ConnectionId).SendAsync("ReceiveOpponentGuess", dto.SenderId, dto.Word);
+            await _hubContext.Clients.Client(receiverConnectionId).SendAsync("ReceiveOpponentGuess", dto.SenderId, dto.Word);
             return ApiResponse<string>.Ok();
         }
 
+        [HttpPost("leaveGame")]
+        public async Task<ApiResponse<string>> LeaveGame(LeaveRoomRequestDto dto)
+        {
+            
+            var result = await _serviceManager.RoomService.LeaveGame(dto);
+            if (!string.IsNullOrEmpty(result))
+            {
+                await _hubContext.Clients.Client(result)
+                    .SendAsync("ReceiveOpponentLeftGame");
+            }
+            return ApiResponse<string>.Ok();
+        }
 
     }
 }
