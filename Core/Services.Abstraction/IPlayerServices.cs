@@ -11,7 +11,7 @@ namespace Core.Services.Abstraction
     public interface IPlayerServices
     {
         Task<PlayerDto?> OnPlayerConnected(string connectionId, string playerId, string playerName, CancellationToken ct = default);
-        Task <PlayerDto> OnPlayerDisconnected(string connectionId, CancellationToken ct = default);
+        Task <PlayerDto?> OnPlayerDisconnected(string connectionId, CancellationToken ct = default);
         Task<GetOnlinePlayersResponseDto> GetOnlinePlayers(PagedListRequestParameters parameters, CancellationToken ct = default);
         Task<InvitePlayerResultDto> InvitePlayer(SendInvitationRequestDto dto, CancellationToken ct = default);
 

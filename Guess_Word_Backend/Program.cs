@@ -32,8 +32,8 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(opt => {
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=wordle.db");
     //opt.UseSqlServer(builder.Configuration.GetConnectionString("LocalConnection") ?? "Data Source=wordle.db");
-    
-    
+
+
 });
 
 

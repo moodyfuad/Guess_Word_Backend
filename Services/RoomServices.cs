@@ -75,8 +75,9 @@ namespace Services
                 return new SubmitWordResultDto(
                     false,
                     "Room Not Found or Invalid State",
-                    room.Creator.ConnectionId,
-                    room.Joiner.ConnectionId,
+                    string.Empty,
+                    string.Empty,
+                    //room.Joiner.ConnectionId,
                     null);
             }
             if (room.WordLength != dto.Word.Length)
@@ -102,8 +103,9 @@ namespace Services
                 room.State = RoomStates.InProgress;
                 room.Creator.PlayedCount += 1;
                 room.Joiner!.PlayedCount += 1;
-                await _repos.Player.UpdateAsync(room.Creator);
-                await _repos.Player.UpdateAsync(room.Joiner);
+                //await _repos.Room.UpdateAsync(room, ct);
+                //await _repos.Player.UpdateAsync(room.Creator);
+                //await _repos.Player.UpdateAsync(room.Joiner);
             }
             await _repos.Room.UpdateAsync(room, ct);
             return new(
@@ -136,13 +138,17 @@ namespace Services
             {
                 // implement win logic for creator
                 room.Creator.WinCount += 1;
-                await _repos.Player.UpdateAsync(room.Creator);
+                room.State = RoomStates.Finished;
+                await _repos.Room.UpdateAsync(room, ct);
+                
             }
             else if (room.JoinerId == dto.SenderId && room.CreatorWord == dto.Word)
             {
                 // implement win logic for joiner
                 room.Joiner.WinCount += 1;
-                await _repos.Player.UpdateAsync(room.Joiner);
+                room.State = RoomStates.Finished;
+                await _repos.Room.UpdateAsync(room, ct);
+                //await _repos.Player.UpdateAsync(room.Joiner);
             }
             return new(
                 true,
@@ -164,14 +170,12 @@ namespace Services
             {
                 room.Joiner.WinCount += 1;
                 await _repos.Player.UpdateAsync(room.Joiner!);
-                await _repos.Room.DeleteAsync(room, ct);
                 return room.Joiner.ConnectionId!;
             }
             else if (room.JoinerId == dto.PlayerId && room.Creator != null)
             {
                 room.Creator.WinCount += 1;
                 await _repos.Player.UpdateAsync(room.Creator);
-                await _repos.Room.DeleteAsync(room, ct);
                 return room.Creator.ConnectionId!;
             }
             await _repos.Room.DeleteAsync(room, ct);

@@ -2,6 +2,10 @@
 {
     public class GetOnlinePlayersRequestDto 
     {
+        public GetOnlinePlayersRequestDto()
+        {
+        }
+
         public GetOnlinePlayersRequestDto(int pageSize, int pageNumber)
         {
             PageSize = pageSize;

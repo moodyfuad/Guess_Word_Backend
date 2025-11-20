@@ -30,7 +30,7 @@ namespace Services
         public async Task<PlayerDto> OnPlayerConnected(string connectionId, string playerId, string playerName, CancellationToken ct = default)
         {
             playerId = playerId.Trim('"', '/', '\\');
-           var player = await _repos.Player.GetAsync(p => p.Id.ToString() == playerId, ct: ct);
+           var player = await _repos.Player.GetAsync(p => p.Id == playerId, ct: ct);
             if (player is null)
             {
                 player = new()
@@ -47,31 +47,36 @@ namespace Services
 
                 player.ConnectionId = connectionId;
                 player.Name = playerName;
+                player.State = PlayerStates.Available;
                 await _repos.Player.UpdateAsync(player, ct);
             }
             return new(player.Id,player.ConnectionId,player.Name,player.PlayedCount,player.WinCount);
         }
 
-        public async Task<PlayerDto> OnPlayerDisconnected(string connectionId, CancellationToken ct = default)
+        public async Task<PlayerDto?> OnPlayerDisconnected(string connectionId, CancellationToken ct = default)
         {
             var player = await _repos.Player.GetAsync(p => p.ConnectionId == connectionId, ct: ct);
             if (player is null)
             {
+                return null;
                 return new(player?.Id ?? "", player?.ConnectionId ?? "", player?.Name ?? "", player?.PlayedCount ?? 0, player?.WinCount ?? 0);
 
             }
-            player.ConnectionId = null;
+            //todo: check this logic
+            //player.ConnectionId = null;
+            //await _repos.Player.UpdateAsync(player, ct);
+            //var room = await _repos.Room.GetAsync(r => r.CreatorId == player.Id && r.JoinerId == null, ct: ct);
+            //if (room != null)
+            //{
+            //    await _repos.Room.DeleteAsync(room, ct);
+            //}
+            player.State = PlayerStates.Offline;
             await _repos.Player.UpdateAsync(player, ct);
-            var room = await _repos.Room.GetAsync(r => r.CreatorId == player.Id && r.JoinerId == null, ct: ct);
-            if (room != null)
-            {
-                await _repos.Room.DeleteAsync(room, ct);
-            }
             return player.To<PlayerDto>();
 
             // if the player is in a game room, handle that logic here (not implemented)
         }
-
+        
         public async Task<GetOnlinePlayersResponseDto> GetOnlinePlayers(PagedListRequestParameters parameters, CancellationToken ct = default)
         {
             var players = await _repos.Player.GetPagedAsync(parameters, p => p.ConnectionId != null && p.State == PlayerStates.Available, ct: ct);
@@ -83,7 +88,7 @@ namespace Services
         {
             // Implementation for inviting a player can be added here
             var creator = await _repos.Player.GetAsync(p => p.Id == dto.FromPlayerId , ct: ct);
-            var receiver = await _repos.Player.GetAsync(p=> p.Id == dto.ToPlayerId && p.ConnectionId != null, ct: ct);
+            var receiver = await _repos.Player.GetAsync(p=> p.Id == dto.ToPlayerId && p.State == PlayerStates.Available , ct: ct);
             if (receiver is null || creator is null)
             {
                 return new InvitePlayerResultDto(false, "Player is Offline", null, null);
@@ -102,8 +107,9 @@ namespace Services
                 MaxAttempts = dto.MaxAttempts,
                 WordLength= dto.WordLength
             };
-            await _repos.Player.UpdateAsync(creator, ct);
-            await _repos.Player.UpdateAsync(receiver, ct);
+            await _repos.Room.AddAsync(creator.CreatedRoom);
+            //await _repos.Player.UpdateAsync(creator, ct);
+            //await _repos.Player.UpdateAsync(receiver, ct);
 
             return new InvitePlayerResultDto(true, creator.CreatedRoom.Key, creator.To<PlayerDto>(), receiver.To<PlayerDto>());
 

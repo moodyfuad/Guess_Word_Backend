@@ -12,9 +12,10 @@
     "http": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
-      "launchUrl": "swagger",
+      //"launchBrowser": true,
+      //"launchUrl": "swagger",
       "applicationUrl": "http://192.168.4.97:8080",
+      //"applicationUrl": "http://192.168.65.102:8181",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
@@ -22,9 +23,10 @@
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
+      //"launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "https://192.168.4.97:8080;http://192.168.4.97:8080",
+      //"applicationUrl": "https://192.168.4.97:8080;http://192.168.4.97:8080",
+      "applicationUrl": "https://192.168.65.102:8080;http://192.168.65.102:8080",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

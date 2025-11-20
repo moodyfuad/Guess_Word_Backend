@@ -27,7 +27,7 @@ namespace WordleServer.Controllers
         }
 
         [HttpGet("/api/players")]
-        public async Task<ApiResponse<GetOnlinePlayersResponseDto>> GetOnlinePlayers([FromBody] GetOnlinePlayersRequestDto dto)
+        public async Task<ApiResponse<GetOnlinePlayersResponseDto>> GetOnlinePlayers([FromQuery] GetOnlinePlayersRequestDto dto)
         {
             var parameters = new PagedListRequestParameters
             {
@@ -44,7 +44,7 @@ namespace WordleServer.Controllers
             InvitePlayerResultDto result = await _serviceManager.PlayerService.InvitePlayer(dto);
             if (result.Success)
             {
-            await _hubContext.Clients.Client(result.Receiver!.ConnectionId).SendAsync("OnInvitationReceived", result.Creator);
+            await _hubContext.Clients.Client(result.Receiver!.ConnectionId).SendAsync("OnInvitationReceived", result.Creator, dto);
             return ApiResponse<string>.Ok("Invitation Sent");
 
             }

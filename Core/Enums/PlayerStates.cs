@@ -11,5 +11,6 @@ namespace Core.Enums
         Available = 0,
         Playing = 1,
         Busy = 2,
+        Offline = 3,
     }
 }

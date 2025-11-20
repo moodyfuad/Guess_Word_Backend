@@ -30,19 +30,7 @@ namespace Guess_Word_Backend.Hubs
             string name = http?.Request.Query["name"] ?? "player";
 
             PlayerDto? newPlayer = await _serviceManager.PlayerService.OnPlayerConnected(connectionId, userId, name);
-            //! var newPlayer = _onlinePlayersService.AddPlayer(userId, connectionId, name);
-
-
-            //await Clients.AllExcept([connectionId]).SendAsync("ReceiveOnlineUser", connectionId);
-            //foreach (PlayerDto player in _onlinePlayersService.GetPlayersRange(p=>p.ConnectionId != null))
-            //{
-            //    if (player.ConnectionId == connectionId)
-            //    {
-            //        continue;
-            //    }
-            //    await Clients.Caller.SendAsync("ReceiveOnlineUser",player.ConnectionId);
-
-            //}
+            
             var parameters = new PagedListRequestParameters
             {
                 PageNumber = 1,
@@ -76,8 +64,11 @@ namespace Guess_Word_Backend.Hubs
         
         private async Task _handelOpponentDisconnected()
         {
-            PlayerDto player = await _serviceManager.PlayerService.
-                OnPlayerDisconnected(Context.ConnectionId);
+            PlayerDto? player = await _serviceManager.PlayerService
+                .OnPlayerDisconnected(Context.ConnectionId);
+
+            if (player is null) return;
+
             await Clients.Others.SendAsync("OnPlayerDisconnected", player);
         }
 
